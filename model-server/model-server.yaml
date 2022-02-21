@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-server
+  labels:
+    app: model-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-server
+  template:
+    metadata:
+      labels:
+        app: model-server
+    spec:
+      containers:
+      - name: model-server
+        image: natalieserrino/object-detector-server:0.0.1
+        ports:
+        - containerPort: 8501
+          name: http
+        - containerPort: 8500
+          name: grpc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-server
+spec:
+  selector:
+    app: model-server
+  ports:
+    - protocol: TCP
+      port: 8501
+      targetPort: 8501
+      name: http
+    - protocol: TCP
+      port: 8500
+      targetPort: 8500
+      name: grpc
