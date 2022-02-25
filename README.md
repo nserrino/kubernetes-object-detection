@@ -5,10 +5,14 @@ A demo app on Kubernetes to run the Tensorflow object detection API.
 ## Instructions
 
 Create the server
-`kubectl apply model-server/model-server.yaml`
+```
+kubectl apply model-server/model-server.yaml
+```
 
 Forward the port
-`kubectl port-forward service/model-server 8501:8501`
+```
+kubectl port-forward service/model-server 8501:8501
+```
 
 Run some load
 ```
