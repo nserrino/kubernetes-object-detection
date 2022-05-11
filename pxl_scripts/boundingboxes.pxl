@@ -1,0 +1,37 @@
+import pxtrace
+import px
+
+
+program = """
+#include <linux/oom.h>
+
+uprobe:/proc/21106/root/usr/bin/tensorflow_model_server:_ZN10tensorflow12_GLOBAL__N_121DoNonMaxSuppressionOpIfEEvPNS_15OpKernelContextERKNS_6TensorEiS6_T_S7_S7_RKSt8functionIFfiiEEbbPi
+{
+    @start[tid] = nsecs;
+    @num_boxes[tid] = arg2;
+}
+
+uretprobe:/proc/21106/root/usr/bin/tensorflow_model_server:_ZN10tensorflow12_GLOBAL__N_121DoNonMaxSuppressionOpIfEEvPNS_15OpKernelContextERKNS_6TensorEiS6_T_S7_S7_RKSt8functionIFfiiEEbbPi
+/@start[tid]/
+{
+    printf(\"time_:%llu latency_ns:%llu num_boxes:%d\", @start[tid], nsecs - @start[tid], @num_boxes[tid]);
+    delete(@start[tid]);
+    delete(@num_boxes[tid]);
+}
+
+
+"""
+
+
+def num_boxes_non_max_suppression():
+    table_name = 'num_boxes_non_max_suppression'
+    pxtrace.UpsertTracepoint(table_name,
+                             table_name,
+                             program,
+                             pxtrace.kprobe(),
+                             "2m")
+    df = px.DataFrame(table=table_name, start_time='-2m')
+    df.latency = px.DurationNanos(df.latency_ns)
+    return df[['time_', 'latency', 'num_boxes']]
+
+px.display(num_boxes_non_max_suppression())

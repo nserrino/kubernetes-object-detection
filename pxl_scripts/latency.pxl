@@ -1,0 +1,41 @@
+import pxtrace
+import px
+
+program = """
+
+uprobe:/proc/21106/root/usr/bin/tensorflow_model_server:_ZN10tensorflow7serving18HttpRestApiHandler14ProcessRequestEN4absl12lts_2021032411string_viewES4_S4_PSt6vectorISt4pairISsSsESaIS7_EEPSsSB_SB_
+{
+    @start[tid] = nsecs;
+}
+
+uretprobe:/proc/21106/root/usr/bin/tensorflow_model_server:_ZN10tensorflow7serving18HttpRestApiHandler14ProcessRequestEN4absl12lts_2021032411string_viewES4_S4_PSt6vectorISt4pairISsSsESaIS7_EEPSsSB_SB_
+/@start[tid]/
+{
+    printf(\"time_:%llu latency_ns:%llu\", @start[tid], nsecs - @start[tid]);
+    delete(@start[tid]);
+}
+
+
+"""
+
+
+def latency():
+    table_name = 'latency'
+    pxtrace.UpsertTracepoint(table_name,
+                             table_name,
+                             program,
+                             pxtrace.kprobe(),
+                             "30m")
+    df = px.DataFrame(table=table_name, start_time='-30m')
+    df.latency_ns = px.DurationNanos(df.latency_ns)
+    df.time_ = px.bin(df.time_, 10*1000*1000*1000)
+    df = df.groupby('time_').agg(
+        request=('time_', px.count),
+        latency_quantiles=('latency_ns', px.quantiles)
+    )
+    df.request = df.request/10
+    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))
+    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))
+    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))
+
+    return df
